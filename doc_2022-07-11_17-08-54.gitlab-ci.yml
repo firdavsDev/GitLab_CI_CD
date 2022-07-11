@@ -1,0 +1,41 @@
+#stages help us run multi jobs in a single project
+stages:
+  - test
+  - build
+  - deploy
+
+# test code
+run_tests:
+  stage: test
+  image: python:3.9-slim-buster
+  before_script:
+    - apt-get update && apt-get install -y make 
+  script:
+    - make test 
+
+# build image
+build_image:
+  stage: build
+  image: docker:20.10.16
+  services: 
+    - docker:20.10.16-dind # docker-in-docker
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs" # certificate directory
+
+  before_script:
+    - docker login -u <dockerhub username $REGISTRY_USERNAME> -p <dockerhub password $REGISTRY_PASSWORD>
+  script:
+    - docker build -t <dockerhub repo image_name:image_tag .
+    - docker push <dockerhub repo image_name:image_tag>
+
+deploy:
+  stage: deploy
+  before_script:
+    - chmod 400 $SSH_KEY
+  script:
+    - ssh -o StrictHostKeyChecking=no -i <$private_key_path> <user>@<host> "
+      docker login -u <dockerhub username $REGISTRY_USERNAME> -p <dockerhub password $REGISTRY_PASSWORD> && 
+      docker ps -aq | xargs docker stop | xargs docker rm && 
+      docker run -d -p <port>:<port> -d <dockerhub repo image_name:image_tag> 
+    
+    "
